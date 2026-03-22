@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<title>Klaskalender</title>
+<style>
+  /* Systeemlettertypen — geen externe verbinding nodig */
+  :root {
+    --font-hoofd: 'Segoe UI', 'Arial Rounded MT Bold', Arial, sans-serif;
+    --font-titel: 'Segoe UI Black', 'Arial Black', Arial, sans-serif;
+  }
+</style>
+<style>
+  :root {
+    --oranje:#FF7A2F; --oranje-l:#FFF0E8;
+    --blauw:#2F80ED;  --blauw-l:#EAF3FF;
+    --groen:#27AE60;  --groen-l:#EAFAF1;
+    --rood:#E74C3C;   --rood-l:#FDEDEC;
+    --geel:#F4C430;   --geel-l:#FFFBEA;
+    --paars:#8E44AD;  --paars-l:#F4ECF7;
+    --bg:#F0F4FA; --tekst:#2C3E50; --grijs:#E4E9F0;
+    --fs:15px; --fs-sm:13px; --fs-lg:17px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;font-family:var(--font-hoofd);background:var(--bg);color:var(--tekst);font-size:var(--fs);overflow:auto;font-weight:700;}
+  #app{display:flex;flex-direction:column;min-height:100vh;height:100vh;}
+
+  /* ── TOPBALK ── */
+  .topbalk{
+    background:linear-gradient(135deg,#FF7A2F,#FF4E50);
+    padding:7px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;
+    flex-shrink:0;box-shadow:0 3px 12px rgba(255,100,30,0.3);
+  }
+  .topbalk-links{display:flex;align-items:center;gap:10px;flex:1;}
+  .topbalk-icon{font-size:26px;flex-shrink:0;}
+  .klas-naam-wrap{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0;}
+  #klas-naam-input{
+    font-family:var(--font-titel);font-size:20px;color:white;font-weight:800;
+    background:transparent;border:none;outline:none;
+    border-bottom:2px dashed rgba(255,255,255,0.4);
+    width:100%;cursor:text;
+    transition:border-color 0.2s;
+  }
+  #klas-naam-input:hover{border-bottom-color:rgba(255,255,255,0.85);}
+  #klas-naam-input:focus{border-bottom-color:white;background:rgba(255,255,255,0.1);border-radius:4px;padding:0 4px;}
+  #klas-naam-input::placeholder{color:rgba(255,255,255,0.55);}
+  .klas-sub{font-size:11px;color:rgba(255,255,255,0.8);font-weight:800;}
+  .legenda-balk{display:flex;gap:5px;align-items:center;flex-wrap:wrap;flex-shrink:0;}
+  .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:50px;font-size:11px;font-weight:900;background:rgba(255,255,255,0.2);color:white;white-space:nowrap;}
+  .badge-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+
+  /* ── WEEK NAVIGATIE ── */
+  .week-nav{
+    background:white;border-bottom:2px solid var(--grijs);
+    padding:6px 10px;display:flex;align-items:center;gap:6px;
+    flex-shrink:0;overflow:hidden;
+  }
+  .pijl{
+    background:var(--oranje);border:none;border-radius:8px;color:white;
+    font-size:17px;font-weight:900;width:36px;height:36px;flex-shrink:0;
+    cursor:pointer;transition:all 0.15s;display:flex;align-items:center;justify-content:center;
+  }
+  .pijl:hover{background:#D96020;transform:scale(1.08);}
+  .pijl:disabled{background:#DDD;color:#AAA;cursor:not-allowed;transform:none;}
+  .tabs-scroll{display:flex;gap:5px;overflow-x:auto;flex:1;scrollbar-width:none;padding:2px 0;}
+  .tabs-scroll::-webkit-scrollbar{display:none;}
+  .week-tab{
+    display:flex;flex-direction:column;align-items:center;
+    padding:4px 10px;border-radius:9px;border:2px solid transparent;
+    cursor:pointer;transition:all 0.15s;white-space:nowrap;
+    background:var(--bg);font-family:var(--font-hoofd);flex-shrink:0;
+  }
+  .week-tab:hover{background:var(--oranje-l);border-color:var(--oranje);}
+  .week-tab.actief{background:var(--oranje);border-color:var(--oranje);color:white;box-shadow:0 3px 10px rgba(255,122,47,0.35);}
+  .week-tab.vandaag-week:not(.actief){background:var(--blauw-l);border-color:var(--blauw);color:var(--blauw);}
+  .week-tab.vrij-week:not(.actief){background:#F8F8F8;color:#AAA;}
+  .week-tab.vakantie-week:not(.actief){background:#FFF0D8;border-color:#FFAA44;color:#CC6600;}
+  .tab-nr{font-size:12px;font-weight:900;}
+  .tab-dt{font-size:10px;font-weight:700;opacity:0.8;}
+  .tab-kw{font-size:9px;font-weight:900;opacity:0.7;}
+  .week-teller{font-size:13px;font-weight:900;color:#2F80ED;white-space:nowrap;flex-shrink:0;padding:4px 12px;background:#EAF3FF;border-radius:8px;border:1.5px solid #AACEF7;}
+
+  /* ── WEEK INHOUD ── */
+  .week-inhoud{flex:1;display:flex;flex-direction:column;padding:8px 12px 8px;min-height:0;}
+  .week-wrap{display:flex;flex-direction:column;height:100%;}
+
+  /* WEEK HEADER */
+  .week-header{
+    background:linear-gradient(90deg,var(--oranje),#FF9558);
+    border-radius:12px 12px 0 0;padding:7px 14px;
+    display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:8px;
+  }
+  .week-titel{font-family:var(--font-titel);font-size:17px;color:white;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .kw-badge{background:rgba(255,255,255,0.25);color:white;font-size:13px;font-weight:900;padding:2px 10px;border-radius:50px;}
+  .week-datums{font-size:13px;color:rgba(255,255,255,0.92);font-weight:800;background:rgba(255,255,255,0.2);padding:3px 12px;border-radius:50px;}
+  .week-acties{display:flex;gap:6px;align-items:center;flex-shrink:0;}
+  .actie-knop{
+    border:none;border-radius:8px;padding:5px 12px;font-family:var(--font-hoofd);font-size:12px;font-weight:900;
+    cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:4px;
+  }
+  .actie-knop:hover{transform:scale(1.05);}
+  .knop-vrij{background:rgba(255,255,255,0.25);color:white;}
+  .knop-vrij:hover{background:rgba(255,255,255,0.4);}
+  .knop-vakantie{background:rgba(255,255,255,0.25);color:white;}
+  .knop-vakantie:hover{background:rgba(255,255,255,0.4);}
+  .knop-rooster{background:rgba(255,255,255,0.25);color:white;}
+  .knop-rooster:hover{background:rgba(255,255,255,0.4);}
+
+  /* TABEL — lesuren als rijen, dagen als kolommen */
+  .rooster-grid{
+    flex:1;display:grid;
+    grid-template-columns:130px repeat(5,1fr);
+    grid-template-rows:auto repeat(5,1fr);
+    background:white;overflow:hidden;min-height:0;
+    border-left:2px solid var(--grijs);
+  }
+
+  /* Hoekcel */
+  .hoekcel{
+    background:var(--blauw);display:flex;align-items:center;justify-content:center;
+    border-right:2px solid rgba(255,255,255,0.2);border-bottom:2px solid rgba(255,255,255,0.2);
+    padding:6px;
+  }
+
+  /* Dag-headers (kolommen) */
+  .dag-header{
+    background:var(--blauw);padding:6px 8px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    border-right:2px solid rgba(255,255,255,0.15);border-bottom:2px solid rgba(255,255,255,0.2);
+    gap:1px;
+  }
+  .dag-header.vandaag-col{background:#1565C0;}
+  .dag-header.vandaag-col .vandaag-pill{background:rgba(255,255,255,0.3);}
+  .dag-header.vrij-col{background:#7F8C8D;}
+  .dag-naam-h{font-size:var(--fs);font-weight:900;color:white;}
+  .dag-datum-h{font-size:11px;color:rgba(255,255,255,0.85);font-weight:700;}
+  .dag-header-acties{margin-top:3px;display:flex;gap:4px;align-items:center;}
+  .dag-vrij-knop{
+    font-size:10px;font-weight:900;border:1.5px solid rgba(255,255,255,0.5);
+    border-radius:5px;padding:1px 7px;cursor:pointer;background:transparent;color:white;
+    transition:all 0.15s;
+  }
+  .dag-vrij-knop:hover{background:rgba(255,255,255,0.25);}
+  .dag-vrij-knop.is-vrij{background:rgba(255,255,255,0.3);}
+  .vrij-reden-input{
+    margin-top:5px;width:100%;border:none;border-radius:6px;
+    padding:4px 8px;font-family:var(--font-hoofd);font-size:12px;font-weight:800;
+    background:rgba(255,255,255,0.85);color:#7A5500;outline:none;
+    placeholder-color:#C0A060;
+  }
+  .vrij-reden-input::placeholder{color:#C0A060;font-weight:700;}
+  .vrij-reden-input:focus{background:white;box-shadow:0 0 0 2px rgba(255,255,255,0.9);}
+  .vandaag-pill{font-size:9px;font-weight:900;color:#1565C0;background:white;padding:1px 6px;border-radius:4px;}
+
+  /* Les-rij-labels (rijen) */
+  .les-label{
+    background:var(--grijs);padding:6px 10px;
+    display:flex;flex-direction:column;align-items:flex-start;justify-content:center;
+    border-bottom:1px solid #D8DCE4;border-right:2px solid #CDD2D8;
+    gap:1px;
+  }
+  .les-naam{font-size:var(--fs);font-weight:900;color:var(--blauw);}
+  .les-tijd{font-size:11px;color:#888;font-weight:800;}
+
+  /* Cellen */
+  .cel{
+    background:var(--blauw-l);border:none;
+    border-bottom:1px solid #E0EAFF;border-right:1px solid #E0EAFF;
+    padding:6px 8px;font-family:var(--font-hoofd);font-size:var(--fs);
+    color:var(--tekst);font-weight:800;width:100%;height:100%;resize:none;outline:none;
+    line-height:1.4;
+  }
+  .cel:focus{background:#DFF0FF;box-shadow:inset 0 0 0 2px var(--blauw);}
+  .cel::placeholder{color:#C0D4EE;font-size:var(--fs-sm);font-weight:700;}
+  .cel.vrij-dag{background:#FFF8E1;color:#B7860B;pointer-events:none;}
+  .cel.vrij-dag::placeholder{color:#D4B060;}
+  .cel.vandaag-cel{background:#DBEAFE;border-bottom:1px solid #BFDBFE;border-right:1px solid #BFDBFE;}
+  .cel.vandaag-cel:focus{background:#BFDBFE;box-shadow:inset 0 0 0 2px #1565C0;}
+  .cel-vrij-leeg{
+    background:#FFFBF0;
+    border-bottom:1px solid #EDE8D8;
+    border-right:1px solid #EDE8D8;
+  }
+  .vandaag-vrij-leeg{
+    background:#DBEAFE;
+    border-bottom:1px solid #BFDBFE;
+    border-right:1px solid #BFDBFE;
+  }
+
+  /* ── OPMERKINGEN ONDERAAN (volle breedte) ── */
+  .opmerkingen-balk{
+    background:var(--grijs);border-radius:0 0 12px 12px;
+    padding:8px 12px;border-top:2px dashed #CDD2D7;
+    display:flex;align-items:stretch;gap:10px;
+    flex-shrink:0;
+  }
+  .opmerking-links{display:flex;flex-direction:column;gap:5px;justify-content:center;flex-shrink:0;}
+  .opmerking-titel{font-size:11px;font-weight:900;color:#888;text-transform:uppercase;letter-spacing:0.6px;white-space:nowrap;}
+  .kleur-balk{display:flex;gap:4px;flex-shrink:0;}
+  .kleur-knop{width:16px;height:16px;border-radius:50%;border:2.5px solid transparent;cursor:pointer;transition:transform 0.12s;flex-shrink:0;}
+  .kleur-knop:hover{transform:scale(1.3);}
+  .kleur-knop.actief{border-color:#333;}
+  .opmerking-cel-wrap{flex:1;display:flex;gap:10px;align-items:stretch;}
+  .opmerking-cel{
+    flex:1;background:var(--groen-l);border:1.5px solid #ABEBC6;border-radius:9px;
+    padding:8px 11px;font-family:var(--font-hoofd);font-size:var(--fs);
+    color:var(--tekst);font-weight:800;resize:none;outline:none;
+    min-height:52px;line-height:1.4;
+  }
+  .opmerking-cel:focus{border-color:var(--groen);box-shadow:0 0 0 2px rgba(39,174,96,0.12);}
+  .opmerking-cel::placeholder{color:#B0D4BC;font-size:var(--fs-sm);font-weight:700;}
+
+  /* Mededelingen in de opmerkingenbalk */
+  .med-container{display:flex;flex-direction:column;gap:5px;min-width:260px;max-width:340px;}
+  .med-label{font-size:11px;font-weight:900;color:#888;text-transform:uppercase;letter-spacing:0.6px;}
+  .med-items{display:flex;flex-direction:column;gap:4px;}
+  .med-item{display:flex;align-items:center;border-radius:8px;border:1.5px solid #DDD;overflow:hidden;background:white;position:relative;}
+  .med-strip{width:6px;min-height:32px;flex-shrink:0;cursor:pointer;transition:opacity 0.1s;}
+  .med-strip:hover{opacity:0.75;}
+  .med-input{border:none;outline:none;padding:6px 24px 6px 8px;font-family:var(--font-hoofd);font-size:var(--fs-sm);font-weight:800;color:var(--tekst);background:transparent;width:100%;}
+  .med-input::placeholder{color:#CCC;}
+  .med-del{position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:13px;color:#CCC;padding:0;line-height:1;}
+  .med-del:hover{color:var(--rood);}
+  .kleur-popup{position:absolute;background:white;border:1.5px solid #DDD;border-radius:8px;padding:5px;display:flex;gap:4px;z-index:200;box-shadow:0 4px 14px rgba(0,0,0,0.13);top:110%;left:0;}
+  .voeg-med-knop{background:white;border:2px dashed #CCC;border-radius:8px;padding:4px 10px;font-family:var(--font-hoofd);font-size:12px;font-weight:900;color:#999;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:4px;}
+  .voeg-med-knop:hover{border-color:var(--oranje);color:var(--oranje);background:var(--oranje-l);}
+
+  /* VRIJ/VAKANTIE overlay */
+  .vrij-overlay{display:flex;flex-direction:column;flex:1;align-items:center;justify-content:center;gap:10px;}
+  .vrij-overlay.type-vakantie{background:linear-gradient(160deg,#FF9A3C,#FFB347);}
+  .vrij-overlay.type-vrij{background:#7F8C8D;}
+  .vrij-emoji{font-size:64px;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.15));}
+  .vrij-tekst-groot{font-family:var(--font-titel);font-size:22px;color:white;}
+  .vrij-edit{display:flex;align-items:center;gap:8px;margin-top:4px;}
+  .vrij-naam-input{font-family:var(--font-titel);font-size:22px;color:white;background:transparent;border:none;border-bottom:2px dashed rgba(255,255,255,0.6);outline:none;text-align:center;width:320px;}
+  .vrij-naam-input::placeholder{color:rgba(255,255,255,0.5);}
+  .vrij-sub{font-size:13px;color:rgba(255,255,255,0.85);font-weight:800;}
+
+  /* Opslaan indicator */
+  .opslaan-ind{position:fixed;bottom:12px;right:16px;background:var(--groen);color:white;padding:5px 14px;border-radius:50px;font-size:12px;font-weight:900;box-shadow:0 3px 10px rgba(39,174,96,0.35);opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:999;}
+  .opslaan-ind.zichtbaar{opacity:1;}
+
+  /* Rooster-kopieer toast */
+  .toast{position:fixed;top:60px;left:50%;transform:translateX(-50%) translateY(-10px);background:#2C3E50;color:white;padding:9px 20px;border-radius:50px;font-size:13px;font-weight:900;opacity:0;transition:all 0.3s;pointer-events:none;z-index:999;}
+  .toast.zichtbaar{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  @media print{
+    html,body{overflow:visible;height:auto;}
+    #app{height:auto;}
+    .week-nav,.voeg-med-knop,.med-del,.kleur-balk,.legenda-balk,.week-acties,.opslaan-ind,.toast{display:none!important;}
+    .dagen-container{overflow:visible;}
+    textarea{resize:none;}
+  }
+  /* ── WACHTWOORDSCHERM ── */
+  #ww-scherm{
+    position:fixed;inset:0;background:linear-gradient(135deg,#FF7A2F,#FF4E50);
+    display:flex;align-items:center;justify-content:center;z-index:9999;
+  }
+  #ww-box{
+    background:#fff;border-radius:16px;padding:40px 36px;width:360px;max-width:92vw;
+    box-shadow:0 12px 48px rgba(0,0,0,0.25);text-align:center;
+  }
+  #ww-box h1{font-family:var(--font-titel);font-size:22px;color:#FF7A2F;margin-bottom:6px;}
+  #ww-box p{font-size:13px;color:#7F8C8D;margin-bottom:24px;}
+  #ww-input{
+    width:100%;padding:12px 14px;border:2px solid #E0E0E0;border-radius:10px;
+    font-size:16px;font-family:var(--font-hoofd);outline:none;
+    transition:border-color 0.2s;box-sizing:border-box;text-align:center;letter-spacing:2px;
+  }
+  #ww-input:focus{border-color:#FF7A2F;}
+  #ww-fout{color:#E74C3C;font-size:13px;margin-top:8px;min-height:18px;}
+  #ww-knop{
+    margin-top:16px;width:100%;padding:13px;border:none;border-radius:10px;
+    background:linear-gradient(135deg,#FF7A2F,#FF4E50);color:#fff;
+    font-size:16px;font-weight:800;font-family:var(--font-hoofd);cursor:pointer;
+    transition:opacity 0.2s;
+  }
+  #ww-knop:hover{opacity:0.88;}
+</style>
+</head>
+<body>
+
+<!-- WACHTWOORDSCHERM -->
+<div id="ww-scherm">
+  <div id="ww-box">
+    <div style="font-size:48px;margin-bottom:12px;">📅</div>
+    <h1>Klaskalender</h1>
+    <p>Voer het wachtwoord in om de kalender te openen</p>
+    <input id="ww-input" type="password" placeholder="Wachtwoord..." autocomplete="off">
+    <div id="ww-fout"></div>
+    <button id="ww-knop" onclick="controleerWW()">Openen</button>
+  </div>
+</div>
+
+<div id="app" style="display:none;">
+
+  <!-- TOPBALK -->
+  <div class="topbalk">
+    <div class="topbalk-links">
+      <div class="topbalk-icon">📅</div>
+      <div class="klas-naam-wrap">
+        <input id="klas-naam-input" type="text" value="ISK Route 1" placeholder="Naam van de klas..." maxlength="60">
+        <span id="datum-vandaag" style="font-size:11px;color:rgba(255,255,255,0.9);font-weight:900;margin-top:1px;"></span>
+      </div>
+    </div>
+    <div class="legenda-balk">
+      <span class="badge"><span class="badge-dot" style="background:#5DADE2"></span>Lesuur</span>
+      <span class="badge"><span class="badge-dot" style="background:#27AE60"></span>Opmerking</span>
+      <span class="badge"><span class="badge-dot" style="background:#F4C430"></span>Mededeling</span>
+      <span class="badge"><span class="badge-dot" style="background:#E74C3C"></span>Vandaag</span>
+      <button onclick="toonInstellingen()" title="Instellingen" style="background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.4);color:#fff;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:14px;margin-left:8px;">⚙️</button>
+    </div>
+  </div>
+
+  <!-- WEEK NAVIGATIE -->
+  <div class="week-nav">
+    <button class="pijl" id="pijl-l" onclick="nav(-1)" title="Vorige week">◀</button>
+    <div class="tabs-scroll" id="tabs"></div>
+    <button class="pijl" id="pijl-r" onclick="nav(1)" title="Volgende week">▶</button>
+  </div>
+
+  <!-- WEEK INHOUD -->
+  <div class="week-inhoud" id="weekinhoud"></div>
+
+</div>
+<div class="opslaan-ind" id="opslaan-ind">✓ Opgeslagen</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ══ CONSTANTEN ══
+const KLEUREN=[
+  {naam:'Oranje',bg:'#FFF0E8',rand:'#FFBB88',tekst:'#C85A00',dot:'#FF7A2F'},
+  {naam:'Blauw', bg:'#EAF3FF',rand:'#AACEF7',tekst:'#1A5FAB',dot:'#2F80ED'},
+  {naam:'Groen', bg:'#EAFAF1',rand:'#ABEBC6',tekst:'#1D7A45',dot:'#27AE60'},
+  {naam:'Rood',  bg:'#FDEDEC',rand:'#F1948A',tekst:'#A93226',dot:'#E74C3C'},
+  {naam:'Geel',  bg:'#FFFBEA',rand:'#F9E08A',tekst:'#9A7700',dot:'#F4C430'},
+  {naam:'Paars', bg:'#F4ECF7',rand:'#C9A8E0',tekst:'#6C3483',dot:'#8E44AD'},
+];
+const DAGEN=[
+  {naam:'Maandag',  emoji:'🌱'},
+  {naam:'Dinsdag',  emoji:'📚'},
+  {naam:'Woensdag', emoji:'✏️'},
+  {naam:'Donderdag',emoji:'🎨'},
+  {naam:'Vrijdag',  emoji:'⭐'},
+];
+const MND=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+
+// ISO weeknummer
+function isoWeek(d){
+  const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  t.setUTCDate(t.getUTCDate()+4-(t.getUTCDay()||7));
+  const yStart=new Date(Date.UTC(t.getUTCFullYear(),0,1));
+  return Math.ceil((((t-yStart)/86400000)+1)/7);
+}
+
+const VANDAAG   = new Date(); VANDAAG.setHours(0,0,0,0); // altijd de echte datum van vandaag
+const START_M   = new Date(2026, 1, 16); // maandag 16 feb 2026 — eerste lesweek
+const EIND_D    = new Date(2026,6,3);  // 3 jul 2026
+
+// Genereer alle weken
+const WEKEN=[];
+{let d=new Date(START_M);while(d<=EIND_D){WEKEN.push(new Date(d));d.setDate(d.getDate()+7);}}
+
+let actief=0;
+
+// ══ STORAGE — JSONBin + localStorage fallback ══
+const SK='isk_kl_v3';
+const SK_CFG='isk_kl_cfg';
+let DB={};
+
+// Lokale config (Bin ID + API Key) — blijft op eigen computer
+const cfg={
+  lees:()=>{try{return JSON.parse(localStorage.getItem(SK_CFG)||'{}');}catch(e){return {};}},
+  sla:(obj)=>{try{localStorage.setItem(SK_CFG,JSON.stringify(obj));}catch(e){}}
+};
+let CFG=cfg.lees();
+// Standaard ingevuld — leerkracht kan dit aanpassen
+if(!CFG.binId)CFG.binId='69b27f9ec3097a1dd51b6fae';
+if(!CFG.apiKey)CFG.apiKey='$2a$10$RLtKp3BpaiUi6TqRsnW.3.C3zkJfGzSWGwFXg2GOrjBbwGMJpcjf6';
+cfg.sla(CFG);
+
+// JSONBin lezen
+async function laadVanBin(){
+  if(!CFG.binId||!CFG.apiKey)return;
+  try{
+    toonIndicator('⏳ Laden...');
+    const r=await fetch(`https://api.jsonbin.io/v3/b/${CFG.binId}/latest`,{
+      headers:{'X-Master-Key':CFG.apiKey,'X-Bin-Meta':'false'}
+    });
+    if(r.ok){
+      const data=await r.json();
+      if(data&&typeof data==='object')DB=data;
+    }
+  }catch(e){}
+}
+
+// JSONBin opslaan
+let saveTimer=null;
+async function slaOpBin(){
+  if(!CFG.binId||!CFG.apiKey)return;
+  try{
+    await fetch(`https://api.jsonbin.io/v3/b/${CFG.binId}`,{
+      method:'PUT',
+      headers:{
+        'Content-Type':'application/json',
+        'X-Master-Key':CFG.apiKey
+      },
+      body:JSON.stringify(DB)
+    });
+    toonIndicator('✓ Opgeslagen');
+  }catch(e){
+    toonIndicator('⚠ Niet opgeslagen');
+  }
+}
+
+function toonIndicator(tekst){
+  try{
+    const el=document.getElementById('opslaan-ind');
+    if(el){
+      el.textContent=tekst;
+      el.classList.add('zichtbaar');
+      if(tekst!=='⏳ Laden...')setTimeout(()=>el.classList.remove('zichtbaar'),2000);
+    }
+  }catch(e){}
+}
+
+function slaOp(){
+  try{DB.__klasnaam=document.getElementById('klas-naam-input').value;}catch(e){}
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(slaOpBin,800);
+}
+
+function slaWeekEnOp(){slaHuidig();slaOp();}
+function slaDirectOp(){slaHuidig();slaOpBin();}
+
+// ══ INSTELLINGEN PANEEL ══
+function toonInstellingen(){
+  const bestaand=document.getElementById('inst-overlay');
+  if(bestaand){bestaand.remove();return;}
+  const ov=document.createElement('div');
+  ov.id='inst-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;';
+  ov.innerHTML=`
+    <div style="background:#fff;border-radius:12px;padding:32px;width:480px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,0.25);font-family:Segoe UI,Arial,sans-serif;">
+      <h2 style="margin:0 0 8px;font-size:18px;color:#2C3E50;">⚙️ Instellingen</h2>
+      <p style="margin:0 0 24px;font-size:13px;color:#7F8C8D;">Vul hier jouw JSONBin gegevens in. Deze worden lokaal opgeslagen op jouw computer.</p>
+      <label style="display:block;font-size:13px;font-weight:700;color:#2C3E50;margin-bottom:4px;">Bin ID</label>
+      <input id="inst-binid" type="text" value="${CFG.binId||''}" placeholder="bijv. 64a1f3c2e3821..."
+        style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid #D0D0D0;border-radius:8px;font-size:14px;margin-bottom:16px;">
+      <label style="display:block;font-size:13px;font-weight:700;color:#2C3E50;margin-bottom:4px;">API Key (Master Key)</label>
+      <input id="inst-apikey" type="password" value="${CFG.apiKey||''}" placeholder="$2a$10$..."
+        style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid #D0D0D0;border-radius:8px;font-size:14px;margin-bottom:24px;">
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button onclick="importeerLokaleData();document.getElementById('inst-overlay').remove();"
+          style="padding:10px 20px;border:1.5px solid #27AE60;border-radius:8px;background:#EAFAF1;color:#27AE60;cursor:pointer;font-size:14px;font-weight:700;">📥 Importeer lokale data</button>
+        <button onclick="document.getElementById('inst-overlay').remove()"
+          style="padding:10px 20px;border:1.5px solid #D0D0D0;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;">Annuleren</button>
+        <button onclick="slaInstellingenOp()"
+          style="padding:10px 20px;border:none;border-radius:8px;background:#FF7A2F;color:#fff;cursor:pointer;font-size:14px;font-weight:700;">Opslaan & herladen</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+}
+
+function slaInstellingenOp(){
+  CFG.binId=document.getElementById('inst-binid').value.trim();
+  CFG.apiKey=document.getElementById('inst-apikey').value.trim();
+  cfg.sla(CFG);
+  document.getElementById('inst-overlay').remove();
+  DB={};
+  laadVanBin().then(()=>init());
+}
+
+function slaHuidig(){
+  const wk='w'+actief;
+  const wd=DB[wk]||{};
+  // lesuren + reden vrije dag
+  for(let di=0;di<5;di++){
+    wd['d'+di]=wd['d'+di]||{};
+    for(let u=1;u<=5;u++){
+      const el=document.querySelector(`[data-sv="${wk}_d${di}_u${u}"]`);
+      if(el)wd['d'+di]['u'+u]=el.value;
+    }
+    const redenEl=document.querySelector(`[data-sv="${wk}_d${di}_reden"]`);
+    if(redenEl)wd['d'+di].reden=redenEl.value;
+    // vrij-vlag wordt direct opgeslagen via toggleDagVrij, hier niet overschrijven
+  }
+  // globale opmerking opslaan
+  const opmEl=document.querySelector('[data-sv="__opm"]');
+  if(opmEl){DB.__opm=opmEl.value;}
+  const opmKlEl=document.querySelector('[data-sv-kleur="__opm"]');
+  if(opmKlEl)DB.__opmKleur=parseInt(opmKlEl.dataset.kidx||'2');
+  // week-type
+  const wtype=document.querySelector('[data-wtype]');
+  if(wtype)wd.wtype=wtype.dataset.wtype;
+  const wvrijnaam=document.querySelector('[data-wvrijnaam]');
+  if(wvrijnaam)wd.wvrijnaam=wvrijnaam.value||'';
+  // mededelingen
+  const meds=[];
+  document.querySelectorAll('[data-med]').forEach(it=>{
+    const inp=it.querySelector('.med-input');
+    if(inp)meds.push({tekst:inp.value,ki:parseInt(it.dataset.ki||'4')});
+  });
+  wd.meds=meds;
+  DB[wk]=wd;
+}
+
+// ══ ISO week helpers ══
+function fd(d){return d.getDate()+' '+MND[d.getMonth()];}
+function isVandaag(d){return d.toDateString()===VANDAAG.toDateString();}
+function heeftVandaag(i){
+  const m=WEKEN[i];
+  for(let x=0;x<5;x++){const d=new Date(m);d.setDate(m.getDate()+x);if(isVandaag(d))return true;}
+  return false;
+}
+
+// ══ TABS ══
+function bouwTabs(){
+  const sc=document.getElementById('tabs');
+  sc.innerHTML='';
+  WEKEN.forEach((m,i)=>{
+    const wd=DB['w'+i]||{};
+    const vrijWk=wd.wtype==='vrij';
+    const vakWk=wd.wtype==='vakantie';
+    const tab=document.createElement('button');
+    tab.className='week-tab'+(heeftVandaag(i)?' vandaag-week':'')+(vrijWk?' vrij-week':'')+(vakWk?' vakantie-week':'');
+    tab.id='tab'+i;
+    tab.innerHTML=`<span class="tab-nr">WEEK ${isoWeek(m)}</span>`;
+    tab.onclick=()=>gaNaar(i);
+    sc.appendChild(tab);
+  });
+}
+
+function updateTabs(){
+  document.querySelectorAll('.week-tab').forEach((t,i)=>t.classList.toggle('actief',i===actief));
+  document.getElementById('pijl-l').disabled=actief===0;
+  document.getElementById('pijl-r').disabled=actief===WEKEN.length-1;
+  const tab=document.getElementById('tab'+actief);
+  if(tab)tab.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});
+}
+
+function nav(r){
+  const n=actief+r;
+  if(n>=0&&n<WEKEN.length)gaNaar(n);
+}
+
+function gaNaar(i){
+  slaHuidig();
+  actief=i;
+  updateTabs();
+  renderWeek(i);
+}
+
+// ══ KLEUREN ══
+function klBalk(sv,sel=2){
+  return KLEUREN.map((k,i)=>
+    `<button class="kleur-knop${i===sel?' actief':''}" style="background:${k.dot}" data-ki="${i}" title="${k.naam}"
+      onclick="kiesKleur(this,'${sv}')"></button>`
+  ).join('');
+}
+function kiesKleur(btn,sv){
+  const idx=parseInt(btn.dataset.ki);
+  btn.closest('.kleur-balk,.kleur-popup').querySelectorAll('.kleur-knop').forEach(b=>b.classList.remove('actief'));
+  btn.classList.add('actief');
+  const t=document.querySelector(`[data-sv="${sv}"]`);
+  if(t){const k=KLEUREN[idx];t.style.background=k.bg;t.style.borderColor=k.rand;t.style.color=k.tekst;
+    const kl=document.querySelector(`[data-sv-kleur="${sv}"]`);if(kl)kl.dataset.kidx=idx;}
+  // globale opmerking kleur direct opslaan
+  if(sv==='__opm'){DB.__opmKleur=idx;slaOp();}
+  else{slaWeekEnOp();}
+}
+
+// ══ MEDEDELINGEN ══
+function voegMedToe(container,wk,tekst='',ki=4){
+  const k=KLEUREN[ki];
+  const el=document.createElement('div');
+  el.className='med-item';el.dataset.med=wk;el.dataset.ki=ki;
+  const uid='md'+Date.now()+'_'+Math.random().toString(36).slice(2);
+  el.innerHTML=`
+    <div class="med-strip" style="background:${k.dot}" onclick="medKleurPopup(this,'${uid}',event)"></div>
+    <input class="med-input" type="text" placeholder="Mededeling..." value="${tekst.replace(/"/g,'&quot;')}"
+      style="background:${k.bg};color:${k.tekst};">
+    <button class="med-del" onclick="this.closest('[data-med]').remove();slaWeekEnOp()">✕</button>`;
+  el.querySelector('.med-input').addEventListener('input',slaWeekEnOp);
+  container.appendChild(el);
+}
+function medKleurPopup(strip,uid,e){
+  e.stopPropagation();
+  document.querySelectorAll('.kleur-popup').forEach(p=>p.remove());
+  const popup=document.createElement('div');popup.className='kleur-popup';
+  KLEUREN.forEach((k,i)=>{
+    const b=document.createElement('button');b.className='kleur-knop';b.style.background=k.dot;b.title=k.naam;
+    b.onclick=(ev)=>{
+      ev.stopPropagation();
+      strip.style.background=k.dot;
+      const it=strip.closest('[data-med]');it.dataset.ki=i;
+      const inp=it.querySelector('.med-input');
+      if(inp){inp.style.background=k.bg;inp.style.color=k.tekst;}
+      popup.remove();slaWeekEnOp();
+    };
+    popup.appendChild(b);
+  });
+  strip.closest('[data-med]').appendChild(popup);
+  setTimeout(()=>document.addEventListener('click',()=>popup.remove(),{once:true}),10);
+}
+
+// ══ VRIJ / VAKANTIE ══
+function setWtype(type){
+  slaHuidig();
+  const wk='w'+actief;
+  DB[wk]=DB[wk]||{};
+  // toggle: als al dat type, zet terug naar normaal
+  if(DB[wk].wtype===type){delete DB[wk].wtype;}
+  else{DB[wk].wtype=type;}
+  slaOp();
+  renderWeek(actief);
+  bouwTabs();
+}
+
+// ══ ROOSTER KOPIËREN ══
+function kopieerRooster(){
+  slaHuidig();
+  const src=DB['w'+actief];
+  if(!src)return;
+  let aantal=0;
+  for(let i=actief+1;i<WEKEN.length;i++){
+    const wd=DB['w'+i]||{};
+    // niet overschrijven als vrij/vakantie
+    if(wd.wtype==='vrij'||wd.wtype==='vakantie')continue;
+    // kopieer alleen lesuren, niet opmerkingen/mededelingen
+    for(let di=0;di<5;di++){
+      wd['d'+di]=wd['d'+di]||{};
+      const sdd=src['d'+di]||{};
+      // niet kopiëren als die dag vrij is in het doelweek
+      if(!wd['d'+di].vrij){
+        for(let u=1;u<=5;u++){
+          if(sdd['u'+u]!==undefined)wd['d'+di]['u'+u]=sdd['u'+u];
+        }
+      }
+    }
+    DB['w'+i]=wd;
+    aantal++;
+  }
+  slaOp();
+  bouwTabs();
+  toonToast(`✓ Rooster gekopieerd naar ${aantal} volgende weken`);
+}
+
+function toonToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('zichtbaar');
+  setTimeout(()=>t.classList.remove('zichtbaar'),2800);
+}
+
+// ══ RENDER WEEK ══
+function renderWeek(idx){
+  const m=WEKEN[idx];
+  const vr=new Date(m);vr.setDate(m.getDate()+4);
+  const el=document.getElementById('weekinhoud');
+  el.innerHTML='';
+  const wk='w'+idx;
+  const wd=DB[wk]||{};
+  const wtype=wd.wtype||'normaal';
+
+  const wrap=document.createElement('div');
+  wrap.className='week-wrap';
+
+  // WEEK HEADER
+  const kw=isoWeek(m);
+  const hd=document.createElement('div');
+  hd.className='week-header';
+  hd.innerHTML=`
+    <div class="week-titel">
+      📅 WEEK ${kw}
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <div class="week-acties">
+        <button class="actie-knop knop-rooster" onclick="kopieerRooster()" title="Kopieer lesrooster naar alle volgende weken">📋 Rooster kopiëren</button>
+        <button class="actie-knop knop-vakantie" onclick="setWtype('vakantie')" title="Markeer als vakantieweek">${wtype==='vakantie'?'✓ ':''}🏖️ Vakantie</button>
+      </div>
+      <div class="week-datums">${fd(m)} – ${fd(vr)} ${vr.getFullYear()}</div>
+    </div>`;
+  wrap.appendChild(hd);
+
+  if(wtype==='vrij'||wtype==='vakantie'){
+    hd.style.background=wtype==='vakantie'
+      ? 'linear-gradient(90deg,#FF8C00,#FFB347)'
+      : 'linear-gradient(90deg,#7F8C8D,#95A5A6)';
+
+    // Smart emoji op basis van naam
+    function vakantieEmoji(naam){
+      const n=(naam||'').toLowerCase();
+      if(n.includes('voorjaar')||n.includes('narcis')) return '🌼';
+      if(n.includes('paas')||n.includes('kuiken'))     return '🐣';
+      if(n.includes('mei')||n.includes('boom'))        return '🌳';
+      if(n.includes('zomer')||n.includes('parasol'))   return '⛱️';
+      if(n.includes('herfst')||n.includes('blad'))     return '🍂';
+      if(n.includes('pinkster')||n.includes('kerk'))   return '⛪';
+      if(n.includes('kerst')||n.includes('kerstman'))  return '🎅';
+      if(n.includes('vrij')||n.includes('studiedag'))  return '🎉';
+      return wtype==='vakantie' ? '🏖️' : '🎉';
+    }
+
+    const bewaardNaam=wd.wvrijnaam||'';
+    const ovl=document.createElement('div');
+    ovl.className='vrij-overlay type-'+(wtype==='vakantie'?'vakantie':'vrij');
+
+    const emojiEl=document.createElement('div');
+    emojiEl.className='vrij-emoji';
+    emojiEl.textContent=vakantieEmoji(bewaardNaam);
+
+    const editDiv=document.createElement('div');
+    editDiv.className='vrij-edit';
+
+    const naamInput=document.createElement('input');
+    naamInput.className='vrij-naam-input';
+    naamInput.dataset.wvrijnaam='';
+    naamInput.type='text';
+    naamInput.placeholder=wtype==='vakantie'?'Naam vakantie...':'Omschrijving vrije dag...';
+    naamInput.value=bewaardNaam;
+    naamInput.maxLength=60;
+    naamInput.addEventListener('input',()=>{
+      emojiEl.textContent=vakantieEmoji(naamInput.value);
+      slaWeekEnOp();
+    });
+    editDiv.appendChild(naamInput);
+
+    const subDiv=document.createElement('div');
+    subDiv.className='vrij-sub';
+    subDiv.textContent=`${fd(m)} – ${fd(vr)} · Geen les`;
+
+    ovl.appendChild(emojiEl);
+    ovl.appendChild(editDiv);
+    ovl.appendChild(subDiv);
+
+    const marker=document.createElement('span');
+    marker.dataset.wtype=wtype;marker.style.display='none';
+    wrap.appendChild(marker);
+    wrap.appendChild(ovl);
+  } else {
+    // Verborgen marker
+    const marker=document.createElement('span');
+    marker.dataset.wtype='normaal';marker.style.display='none';
+    wrap.appendChild(marker);
+
+    // ROOSTER GRID: lesuren = rijen, dagen = kolommen
+    const LESUREN=[
+      {nr:1,tijd:'8.30–9.10'},
+      {nr:2,tijd:'9.10–10.30'},
+      {nr:3,tijd:'10.50–12.10'},
+      {nr:4,tijd:'12.40–14.00'},
+      {nr:5,tijd:'14.20–15.40'},
+    ];
+
+    const grid=document.createElement('div');
+    grid.className='rooster-grid';
+
+    // Hoekcel
+    const hoek=document.createElement('div');
+    hoek.className='hoekcel';
+    hoek.innerHTML=`<span style="font-size:11px;font-weight:900;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.5px;">Les / Dag</span>`;
+    grid.appendChild(hoek);
+
+    // DAG-HEADERS (bovenste rij, één per dag)
+    DAGEN.forEach((dag,di)=>{
+      const datum=new Date(m);datum.setDate(m.getDate()+di);
+      const vd=isVandaag(datum);
+      const dd=wd['d'+di]||{};
+      const dagVrij=dd.vrij||false;
+
+      const dh=document.createElement('div');
+      dh.className='dag-header'+(vd?' vandaag-col':'')+(dagVrij?' vrij-col':'');
+
+      // Sinterklaas op 5 december (geen vrije dag, alleen icoontje)
+      const isSinterklaas = datum.getDate()===5 && datum.getMonth()===11; // dec=11
+      const extraBadge = isSinterklaas ? '<span style="font-size:18px;display:block;margin-top:2px;" title="Sinterklaas">🎅</span>' : '';
+      dh.innerHTML=`
+        <div class="dag-naam-h">${dag.emoji} ${dag.naam}${isSinterklaas?' 🎅':''}</div>
+        <div class="dag-datum-h">${fd(datum)}</div>
+        <div class="dag-header-acties">
+          ${vd?'<span class="vandaag-pill">Vandaag</span>':''}
+          <button class="dag-vrij-knop${dagVrij?' is-vrij':''}"
+            onclick="toggleDagVrij(this,'${wk}',${di})"
+            title="${dagVrij?'Ongedaan maken':'Dag vrij zetten'}">
+            ${dagVrij?'↩ Ongedaan':'🎉 Vrij'}
+          </button>
+        </div>
+        ${dagVrij?`<input class="vrij-reden-input" type="text"
+          data-sv="${wk}_d${di}_reden"
+          placeholder="Reden vrije dag..."
+          value="${(dd.reden||'').replace(/"/g,'&quot;')}">`:''}`;
+      grid.appendChild(dh);
+      // Luister naar reden-invoer als dag vrij is
+      const redenInput=dh.querySelector('.vrij-reden-input');
+      if(redenInput)redenInput.addEventListener('input',slaWeekEnOp);
+    });
+
+    // LES-RIJEN (5 rijen, één per lesuur)
+    LESUREN.forEach((les)=>{
+      // Les-label (linkerkolom) — geen vandaag-kleur nodig hier
+      const ll=document.createElement('div');
+      ll.className='les-label';
+      ll.innerHTML=`<span class="les-naam">Les ${les.nr}</span><span class="les-tijd">${les.tijd}</span>`;
+      grid.appendChild(ll);
+
+      // Cellen per dag
+      DAGEN.forEach((_,di)=>{
+        const dd=wd['d'+di]||{};
+        const dagVrij=dd.vrij||false;
+        const vdDag=isVandaag(new Date(m.getTime()+di*86400000));
+        if(dagVrij){
+          const leeg=document.createElement('div');
+          leeg.className='cel-vrij-leeg'+(vdDag?' vandaag-vrij-leeg':'');
+          grid.appendChild(leeg);
+        } else {
+          const val=(dd['u'+les.nr]||'').replace(/</g,'&lt;');
+          const cel=document.createElement('textarea');
+          cel.className='cel'+(vdDag?' vandaag-cel':'');
+          cel.dataset.sv=`${wk}_d${di}_u${les.nr}`;
+          cel.placeholder=`Les ${les.nr}...`;
+          cel.value=val;
+          cel.addEventListener('input',slaWeekEnOp);
+          grid.appendChild(cel);
+        }
+      });
+    });
+
+    wrap.appendChild(grid);
+  }
+
+  // OPMERKINGEN BALK (altijd, volle breedte, GLOBAAL voor alle weken)
+  const opmKlIdx=DB.__opmKleur!==undefined?DB.__opmKleur:2;
+  const opmK=KLEUREN[opmKlIdx];
+  const ob=document.createElement('div');
+  ob.className='opmerkingen-balk';
+  ob.innerHTML=`
+    <div class="opmerking-links">
+      <span class="opmerking-titel">🟢 Opmerking<br><span style="font-size:9px;font-weight:700;opacity:0.7;text-transform:none;letter-spacing:0;">Geldt voor alle weken</span></span>
+      <div class="kleur-balk">${klBalk('__opm',opmKlIdx)}</div>
+    </div>
+    <div class="opmerking-cel-wrap">
+      <textarea class="opmerking-cel"
+        data-sv="__opm"
+        data-sv-kleur="__opm"
+        data-kidx="${opmKlIdx}"
+        placeholder="Schrijf hier een opmerking (zichtbaar in alle weken)..."
+        style="background:${opmK.bg};border-color:${opmK.rand};color:${opmK.tekst};"
+        >${(DB.__opm||'').replace(/</g,'&lt;')}</textarea>
+      <div class="med-container">
+        <span class="med-label">🔔 Mededelingen</span>
+        <div class="med-items" id="med-items-${idx}"></div>
+        <button class="voeg-med-knop" onclick="voegMedToe(document.getElementById('med-items-${idx}'),'${wk}')">＋ Toevoegen</button>
+      </div>
+    </div>`;
+  ob.querySelector('textarea').addEventListener('input',e=>{
+    DB.__opm=e.target.value;
+    slaOp();
+  });
+  wrap.appendChild(ob);
+  el.appendChild(wrap);
+
+  // Herstel mededelingen
+  const medContainer=document.getElementById('med-items-'+idx);
+  if(wd.meds&&wd.meds.length){
+    wd.meds.forEach(md=>voegMedToe(medContainer,wk,md.tekst,md.ki));
+  }
+}
+
+// ══ DAG VRIJ TOGGLE ══
+function toggleDagVrij(btn,wk,di){
+  slaHuidig();
+  const wd=DB[wk]||{};
+  wd['d'+di]=wd['d'+di]||{};
+  wd['d'+di].vrij=!wd['d'+di].vrij;
+  DB[wk]=wd;
+  slaOp();
+  renderWeek(actief);
+}
+
+// ══ WACHTWOORD ══
+const WW='ISK2026!';
+function controleerWW(){
+  const inp=document.getElementById('ww-input');
+  if(inp.value===WW){
+    document.getElementById('ww-scherm').style.display='none';
+    document.getElementById('app').style.display='flex';
+    init();
+  } else {
+    document.getElementById('ww-fout').textContent='Onjuist wachtwoord, probeer opnieuw.';
+    inp.value='';inp.focus();
+  }
+}
+// Enter-toets op wachtwoordveld
+document.getElementById('ww-input').addEventListener('keydown',e=>{
+  if(e.key==='Enter')controleerWW();
+});
+
+// ══ IMPORTEER LOKALE DATA (eenmalig) ══
+function importeerLokaleData(){
+  try{
+    const oud=localStorage.getItem('isk_kl_v3');
+    if(!oud){toonToast('Geen lokale data gevonden.');return;}
+    const data=JSON.parse(oud);
+    if(Object.keys(data).length===0){toonToast('Lokale data is leeg.');return;}
+    if(!confirm('Wil je de lokale kalenderdata importeren naar JSONBin?\n\nLet op: de huidige JSONBin-data wordt overschreven.'))return;
+    DB=data;
+    slaOpBin().then(()=>{
+      toonToast('✓ Lokale data geïmporteerd naar JSONBin!');
+      renderWeek(actief);
+    });
+  }catch(e){toonToast('Fout bij importeren: '+e.message);}
+}
+
+// ══ INIT ══
+async function init(){
+  try{
+    await laadVanBin();
+
+    // Herstel klasnaam
+    const bewaardNaam=DB.__klasnaam;
+    if(bewaardNaam)document.getElementById('klas-naam-input').value=bewaardNaam;
+    document.getElementById('klas-naam-input').addEventListener('input',slaOp);
+
+    // Datum van vandaag linksboven
+    const DAGNAMEN=['zondag','maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag'];
+    const MAANDNAMEN=['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
+    document.getElementById('datum-vandaag').textContent=
+      `${DAGNAMEN[VANDAAG.getDay()]} ${VANDAAG.getDate()} ${MAANDNAMEN[VANDAAG.getMonth()]} ${VANDAAG.getFullYear()}`;
+
+    bouwTabs();
+    // Open week van vandaag
+    const viIdx=WEKEN.findIndex((_,i)=>heeftVandaag(i));
+    actief=viIdx>=0?viIdx:0;
+    updateTabs();
+    renderWeek(actief);
+
+    // Toetsenbord pijltjes
+    document.addEventListener('keydown',e=>{
+      if(e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT')return;
+      if(e.key==='ArrowRight')nav(1);
+      if(e.key==='ArrowLeft')nav(-1);
+    });
+    window.addEventListener('beforeunload',()=>{slaHuidig();});
+  }catch(err){
+    document.body.innerHTML='<div style="padding:40px;font-family:Arial;font-size:18px;color:#C0392B;">⚠ Fout bij laden: '+err.message+'</div>';
+  }
+}
+
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',()=>{
+    document.getElementById('ww-input').focus();
+  });
+}else{
+  document.getElementById('ww-input').focus();
+}
+</script>
+</body>
+</html>

@@ -112,7 +112,7 @@
   .rooster-grid{
     flex:1;display:grid;
     grid-template-columns:130px repeat(5,1fr);
-    grid-template-rows:auto repeat(5,1fr);
+    grid-template-rows:auto auto repeat(5,1fr);
     background:white;overflow:hidden;min-height:0;
     border-left:2px solid var(--grijs);
   }
@@ -253,6 +253,51 @@
     .dagen-container{overflow:visible;}
     textarea{resize:none;}
   }
+
+  /* ── MELDINGSRIJ ── */
+  .melding-label{
+    background:#2C3E50;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:6px 4px;font-size:10px;color:rgba(255,255,255,0.85);font-weight:900;
+    text-transform:uppercase;letter-spacing:0.5px;text-align:center;
+    border-top:2px solid #1A252F;
+  }
+  .melding-label span{font-size:16px;display:block;margin-bottom:2px;}
+  .melding-cel{
+    border-top:2px solid #BDC3C7;
+    background:#FDFEFE;
+    display:flex;flex-direction:column;
+    padding:0;
+    position:relative;
+    min-height:36px;
+  }
+  .melding-cel.heeft-namen{background:#FFFDE7;}
+  .melding-cel.vandaag-melding{background:#EAF3FF;border-top-color:#2F80ED;}
+  .melding-plus{
+    width:100%;border:none;background:transparent;
+    cursor:pointer;font-size:18px;color:#95A5A6;
+    padding:6px 0;line-height:1;
+    transition:color 0.15s;
+  }
+  .melding-plus:hover{color:#FF7A2F;}
+  .melding-plus.open{color:#FF7A2F;}
+  .melding-namen{
+    display:none;
+    padding:4px 6px 6px;
+  }
+  .melding-namen.zichtbaar{display:block;}
+  .melding-namen-preview{
+    font-size:11px;color:#2C3E50;font-weight:800;
+    padding:4px 6px;line-height:1.5;cursor:pointer;
+    white-space:pre-wrap;word-break:break-word;
+  }
+  .melding-namen textarea{
+    width:100%;border:1.5px solid #BDC3C7;border-radius:6px;
+    font-family:var(--font-hoofd);font-size:12px;font-weight:700;
+    padding:5px 7px;resize:none;outline:none;min-height:60px;
+    background:#fff;color:#2C3E50;
+  }
+  .melding-namen textarea:focus{border-color:#FF7A2F;}
   /* ── WACHTWOORDSCHERM ── */
   #ww-scherm{
     position:fixed;inset:0;background:linear-gradient(135deg,#FF7A2F,#FF4E50);
@@ -486,6 +531,8 @@ function slaHuidig(){
     }
     const redenEl=document.querySelector(`[data-sv="${wk}_d${di}_reden"]`);
     if(redenEl)wd['d'+di].reden=redenEl.value;
+    const meldEl=document.querySelector(`[data-sv="${wk}_d${di}_melding"]`);
+    if(meldEl)wd['d'+di].melding=meldEl.value;
     // vrij-vlag wordt direct opgeslagen via toggleDagVrij, hier niet overschrijven
   }
   // globale opmerking opslaan
@@ -796,6 +843,52 @@ function renderWeek(idx){
       // Luister naar reden-invoer als dag vrij is
       const redenInput=dh.querySelector('.vrij-reden-input');
       if(redenInput)redenInput.addEventListener('input',slaWeekEnOp);
+    });
+
+    // MELDINGSRIJ — 8.00 uur melding per dag (boven Les 1)
+    const meldLabel=document.createElement('div');
+    meldLabel.className='melding-label';
+    meldLabel.innerHTML=`<span>🔔</span>8.00u`;
+    grid.appendChild(meldLabel);
+
+    DAGEN.forEach((_,di)=>{
+      const dd=wd['d'+di]||{};
+      const vdDag=isVandaag(new Date(m.getTime()+di*86400000));
+      const namen=dd.melding||'';
+      const heeftNamen=namen.trim()!=='';
+
+      const mc=document.createElement('div');
+      mc.className='melding-cel'+(heeftNamen?' heeft-namen':'')+(vdDag?' vandaag-melding':'');
+
+      const plusBtn=document.createElement('button');
+      plusBtn.className='melding-plus'+(heeftNamen?' open':'');
+      plusBtn.title='Leerlingen invoeren voor 8.00u melding';
+      plusBtn.textContent=heeftNamen?'✏️':'＋';
+
+      const namenDiv=document.createElement('div');
+      namenDiv.className='melding-namen'+(heeftNamen?' zichtbaar':'');
+
+      const ta=document.createElement('textarea');
+      ta.placeholder='Namen leerlingen...';
+      ta.value=namen;
+      ta.dataset.sv=`${wk}_d${di}_melding`;
+      ta.addEventListener('input',()=>{
+        const heeftTekst=ta.value.trim()!=='';
+        mc.classList.toggle('heeft-namen',heeftTekst);
+        plusBtn.textContent=heeftTekst?'✏️':'＋';
+        slaWeekEnOp();
+      });
+      namenDiv.appendChild(ta);
+
+      plusBtn.addEventListener('click',()=>{
+        const open=namenDiv.classList.toggle('zichtbaar');
+        plusBtn.classList.toggle('open',open);
+        if(open)ta.focus();
+      });
+
+      mc.appendChild(plusBtn);
+      mc.appendChild(namenDiv);
+      grid.appendChild(mc);
     });
 
     // LES-RIJEN (5 rijen, één per lesuur)

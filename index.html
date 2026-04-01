@@ -256,26 +256,26 @@
 
   /* ── MELDINGSRIJ ── */
   .melding-label{
-    background:#2C3E50;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:#1A252F;
+    display:flex;flex-direction:row;align-items:center;justify-content:center;gap:5px;
     padding:6px 4px;font-size:10px;color:rgba(255,255,255,0.85);font-weight:900;
     text-transform:uppercase;letter-spacing:0.5px;text-align:center;
-    border-top:2px solid #1A252F;
+    border-bottom:2px solid #0D1B24;
   }
-  .melding-label span{font-size:16px;display:block;margin-bottom:2px;}
+  .melding-label span{font-size:14px;}
   .melding-cel{
-    border-top:2px solid #BDC3C7;
-    background:#FDFEFE;
+    border-bottom:2px solid #0D1B24;
+    background:#2C3E50;
     display:flex;flex-direction:column;
     padding:0;
     position:relative;
     min-height:36px;
   }
-  .melding-cel.heeft-namen{background:#FFFDE7;}
-  .melding-cel.vandaag-melding{background:#EAF3FF;border-top-color:#2F80ED;}
+  .melding-cel.heeft-namen{background:#1E3A4A;}
+  .melding-cel.vandaag-melding{background:#1A3A5C;border-bottom-color:#2F80ED;}
   .melding-plus{
     width:100%;border:none;background:transparent;
-    cursor:pointer;font-size:18px;color:#95A5A6;
+    cursor:pointer;font-size:20px;color:rgba(255,255,255,0.45);
     padding:6px 0;line-height:1;
     transition:color 0.15s;
   }
@@ -286,18 +286,14 @@
     padding:4px 6px 6px;
   }
   .melding-namen.zichtbaar{display:block;}
-  .melding-namen-preview{
-    font-size:11px;color:#2C3E50;font-weight:800;
-    padding:4px 6px;line-height:1.5;cursor:pointer;
-    white-space:pre-wrap;word-break:break-word;
-  }
   .melding-namen textarea{
-    width:100%;border:1.5px solid #BDC3C7;border-radius:6px;
+    width:100%;border:1.5px solid rgba(255,255,255,0.2);border-radius:6px;
     font-family:var(--font-hoofd);font-size:12px;font-weight:700;
     padding:5px 7px;resize:none;outline:none;min-height:60px;
-    background:#fff;color:#2C3E50;
+    background:rgba(255,255,255,0.1);color:#fff;
   }
-  .melding-namen textarea:focus{border-color:#FF7A2F;}
+  .melding-namen textarea::placeholder{color:rgba(255,255,255,0.35);}
+  .melding-namen textarea:focus{border-color:#FF7A2F;background:rgba(255,255,255,0.15);}
   /* ── WACHTWOORDSCHERM ── */
   #ww-scherm{
     position:fixed;inset:0;background:linear-gradient(135deg,#FF7A2F,#FF4E50);
@@ -848,7 +844,7 @@ function renderWeek(idx){
     // MELDINGSRIJ — 8.00 uur melding per dag (boven Les 1)
     const meldLabel=document.createElement('div');
     meldLabel.className='melding-label';
-    meldLabel.innerHTML=`<span>🔔</span>8.00u`;
+    meldLabel.innerHTML=`<span>🕗</span>8.00 uur melden`;
     grid.appendChild(meldLabel);
 
     DAGEN.forEach((_,di)=>{
@@ -863,7 +859,7 @@ function renderWeek(idx){
       const plusBtn=document.createElement('button');
       plusBtn.className='melding-plus'+(heeftNamen?' open':'');
       plusBtn.title='Leerlingen invoeren voor 8.00u melding';
-      plusBtn.textContent=heeftNamen?'✏️':'＋';
+      plusBtn.textContent=heeftNamen?'🕗 ✏️':'🕗 ＋';
 
       const namenDiv=document.createElement('div');
       namenDiv.className='melding-namen'+(heeftNamen?' zichtbaar':'');
@@ -875,7 +871,7 @@ function renderWeek(idx){
       ta.addEventListener('input',()=>{
         const heeftTekst=ta.value.trim()!=='';
         mc.classList.toggle('heeft-namen',heeftTekst);
-        plusBtn.textContent=heeftTekst?'✏️':'＋';
+        plusBtn.textContent=heeftTekst?'🕗 ✏️':'🕗 ＋';
         slaWeekEnOp();
       });
       namenDiv.appendChild(ta);

@@ -298,11 +298,13 @@
   #wijziging-popup{
     position:fixed;z-index:2000;
     background:#fff;border-radius:12px;
-    box-shadow:0 8px 32px rgba(0,0,0,0.22);
-    padding:16px 18px;width:280px;
+    box-shadow:0 8px 32px rgba(0,0,0,0.3);
+    padding:16px 18px;width:300px;
     font-family:var(--font-hoofd);
     border-top:4px solid #FF7A2F;
     display:none;
+    top:50%;left:50%;
+    transform:translate(-50%,-50%);
   }
   #wijziging-popup.zichtbaar{display:block;}
   #wijziging-popup h3{font-size:13px;color:#2C3E50;margin:0 0 4px;font-weight:900;}
@@ -1058,25 +1060,12 @@ function importeerLokaleData(){
 let wijzigingContext=null; // {wkIdx, di, lesNr, nieuweWaarde, oudeWaarde, celEl}
 
 function toonWijzigingPopup(wkIdx, di, lesNr, nieuweWaarde, oudeWaarde, celEl){
-  // Sla context op
   wijzigingContext={wkIdx, di, lesNr, nieuweWaarde, oudeWaarde, celEl};
-
-  // Positioneer popup bij de cel
-  const popup=document.getElementById('wijziging-popup');
-  const rect=celEl.getBoundingClientRect();
   const dagNaam=DAGEN[di].naam;
   document.getElementById('wij-omschrijving').textContent=
     `${dagNaam}, Les ${lesNr} — wil je deze wijziging ook doorvoeren in volgende weken?`;
-
-  // Positie berekenen
-  let top=rect.bottom+window.scrollY+6;
-  let left=rect.left+window.scrollX;
-  // Voorkom dat popup buiten scherm valt
+  const popup=document.getElementById('wijziging-popup');
   popup.style.display='block';
-  if(left+280>window.innerWidth)left=window.innerWidth-290;
-  if(top+200>window.innerHeight+window.scrollY)top=rect.top+window.scrollY-210;
-  popup.style.top=top+'px';
-  popup.style.left=left+'px';
   popup.classList.add('zichtbaar');
 }
 

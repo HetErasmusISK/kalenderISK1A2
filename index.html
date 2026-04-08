@@ -294,6 +294,35 @@
   }
   .melding-namen textarea::placeholder{color:rgba(255,255,255,0.35);}
   .melding-namen textarea:focus{border-color:#FF7A2F;background:rgba(255,255,255,0.15);}
+  /* ── WIJZIGING POPUP ── */
+  #wijziging-popup{
+    position:fixed;z-index:2000;
+    background:#fff;border-radius:12px;
+    box-shadow:0 8px 32px rgba(0,0,0,0.22);
+    padding:16px 18px;width:280px;
+    font-family:var(--font-hoofd);
+    border-top:4px solid #FF7A2F;
+    display:none;
+  }
+  #wijziging-popup.zichtbaar{display:block;}
+  #wijziging-popup h3{font-size:13px;color:#2C3E50;margin:0 0 4px;font-weight:900;}
+  #wijziging-popup p{font-size:11px;color:#7F8C8D;margin:0 0 12px;line-height:1.4;}
+  .wij-knop{
+    display:block;width:100%;margin-bottom:6px;
+    padding:9px 12px;border-radius:8px;border:1.5px solid #E0E0E0;
+    background:#F8F9FA;cursor:pointer;text-align:left;
+    font-family:var(--font-hoofd);font-size:12px;font-weight:800;color:#2C3E50;
+    transition:all 0.15s;
+  }
+  .wij-knop:hover{background:#FFF0E8;border-color:#FF7A2F;color:#FF7A2F;}
+  .wij-knop span{display:block;font-size:10px;font-weight:700;color:#95A5A6;margin-top:1px;}
+  .wij-annuleer{
+    display:block;width:100%;margin-top:4px;
+    padding:6px;border:none;background:transparent;
+    cursor:pointer;font-size:11px;color:#95A5A6;font-family:var(--font-hoofd);
+  }
+  .wij-annuleer:hover{color:#E74C3C;}
+
   /* ── WACHTWOORDSCHERM ── */
   #ww-scherm{
     position:fixed;inset:0;background:linear-gradient(135deg,#FF7A2F,#FF4E50);
@@ -368,6 +397,19 @@
 </div>
 <div class="opslaan-ind" id="opslaan-ind">✓ Opgeslagen</div>
 <div class="toast" id="toast"></div>
+<div id="wijziging-popup">
+  <h3>✏️ Wijziging doorvoeren</h3>
+  <p id="wij-omschrijving">Je hebt iets gewijzigd. Wil je dit ook doorvoeren in de volgende weken?</p>
+  <button class="wij-knop" onclick="pasWijzigingToe('eenmalig')">
+    🔒 Alleen deze week
+    <span>Andere weken blijven ongewijzigd</span>
+  </button>
+  <button class="wij-knop" onclick="pasWijzigingToe('rest')">
+    🔁 Deze week + alle volgende weken
+    <span>Weken die al anders zijn worden overgeslagen</span>
+  </button>
+  <button class="wij-annuleer" onclick="sluitWijzigingPopup(true)">↩ Annuleren (herstel origineel)</button>
+</div>
 
 <script>
 // ══ CONSTANTEN ══
@@ -406,50 +448,54 @@ const WEKEN=[];
 
 let actief=0;
 
-// ══ STORAGE — JSONBin + localStorage fallback ══
-const SK='isk_kl_v3';
-const SK_CFG='isk_kl_cfg';
-let DB={};
-
-// Lokale config (Bin ID + API Key) — blijft op eigen computer
-const cfg={
-  lees:()=>{try{return JSON.parse(localStorage.getItem(SK_CFG)||'{}');}catch(e){return {};}},
-  sla:(obj)=>{try{localStorage.setItem(SK_CFG,JSON.stringify(obj));}catch(e){}}
+// ══ FIREBASE CONFIG ══
+const firebaseConfig={
+  apiKey:"AIzaSyCiQPjjCK-XuPDzCCSkKwCffwgBwCUiXg",
+  authDomain:"isk-kalender.firebaseapp.com",
+  projectId:"isk-kalender",
+  storageBucket:"isk-kalender.firebasestorage.app",
+  messagingSenderId:"296009763100",
+  appId:"1:296009763100:web:2727be92f006fa9aad12d9"
 };
-let CFG=cfg.lees();
-// Standaard ingevuld — leerkracht kan dit aanpassen
-if(!CFG.binId)CFG.binId='69b27f9ec3097a1dd51b6fae';
-if(!CFG.apiKey)CFG.apiKey='$2a$10$RLtKp3BpaiUi6TqRsnW.3.C3zkJfGzSWGwFXg2GOrjBbwGMJpcjf6';
-cfg.sla(CFG);
 
-// JSONBin lezen
-async function laadVanBin(){
-  if(!CFG.binId||!CFG.apiKey)return;
+// Firebase laden via CDN
+const FB_URL='https://www.gstatic.com/firebasejs/10.12.0';
+let db=null;
+let DB={};
+const DOC_ID='klas-route1'; // document ID — elke klas krijgt eigen ID
+
+async function initFirebase(){
   try{
-    toonIndicator('⏳ Laden...');
-    const r=await fetch(`https://api.jsonbin.io/v3/b/${CFG.binId}/latest`,{
-      headers:{'X-Master-Key':CFG.apiKey,'X-Bin-Meta':'false'}
-    });
-    if(r.ok){
-      const data=await r.json();
-      if(data&&typeof data==='object')DB=data;
-    }
-  }catch(e){}
+    const {initializeApp}=await import(`${FB_URL}/firebase-app.js`);
+    const {getFirestore,doc,getDoc,setDoc}=await import(`${FB_URL}/firebase-firestore.js`);
+    const app=initializeApp(firebaseConfig);
+    db=getFirestore(app);
+    window._fbDoc=()=>doc(db,'kalenders',DOC_ID);
+    window._fbGet=getDoc;
+    window._fbSet=setDoc;
+  }catch(e){
+    toonIndicator('⚠ Firebase niet beschikbaar');
+  }
 }
 
-// JSONBin opslaan
-let saveTimer=null;
-async function slaOpBin(){
-  if(!CFG.binId||!CFG.apiKey)return;
+async function laadVanDB(){
+  toonIndicator('⏳ Laden...');
   try{
-    await fetch(`https://api.jsonbin.io/v3/b/${CFG.binId}`,{
-      method:'PUT',
-      headers:{
-        'Content-Type':'application/json',
-        'X-Master-Key':CFG.apiKey
-      },
-      body:JSON.stringify(DB)
-    });
+    const snap=await window._fbGet(window._fbDoc());
+    if(snap.exists()){
+      DB=snap.data()||{};
+    }
+    toonIndicator('✓ Geladen');
+    setTimeout(()=>document.getElementById('opslaan-ind')?.classList.remove('zichtbaar'),1500);
+  }catch(e){
+    toonIndicator('⚠ Laden mislukt');
+  }
+}
+
+let saveTimer=null;
+async function slaOpDB(){
+  try{
+    await window._fbSet(window._fbDoc(), DB);
     toonIndicator('✓ Opgeslagen');
   }catch(e){
     toonIndicator('⚠ Niet opgeslagen');
@@ -470,11 +516,11 @@ function toonIndicator(tekst){
 function slaOp(){
   try{DB.__klasnaam=document.getElementById('klas-naam-input').value;}catch(e){}
   clearTimeout(saveTimer);
-  saveTimer=setTimeout(slaOpBin,800);
+  saveTimer=setTimeout(slaOpDB,800);
 }
 
 function slaWeekEnOp(){slaHuidig();slaOp();}
-function slaDirectOp(){slaHuidig();slaOpBin();}
+function slaDirectOp(){slaHuidig();slaOpDB();}
 
 // ══ INSTELLINGEN PANEEL ══
 function toonInstellingen(){
@@ -484,18 +530,13 @@ function toonInstellingen(){
   ov.id='inst-overlay';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;';
   ov.innerHTML=`
-    <div style="background:#fff;border-radius:12px;padding:32px;width:480px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,0.25);font-family:Segoe UI,Arial,sans-serif;">
+    <div style="background:#fff;border-radius:12px;padding:32px;width:420px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,0.25);font-family:Segoe UI,Arial,sans-serif;">
       <h2 style="margin:0 0 8px;font-size:18px;color:#2C3E50;">⚙️ Instellingen</h2>
-      <p style="margin:0 0 24px;font-size:13px;color:#7F8C8D;">Vul hier jouw JSONBin gegevens in. Deze worden lokaal opgeslagen op jouw computer.</p>
-      <label style="display:block;font-size:13px;font-weight:700;color:#2C3E50;margin-bottom:4px;">Bin ID</label>
-      <input id="inst-binid" type="text" value="${CFG.binId||''}" placeholder="bijv. 64a1f3c2e3821..."
-        style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid #D0D0D0;border-radius:8px;font-size:14px;margin-bottom:16px;">
-      <label style="display:block;font-size:13px;font-weight:700;color:#2C3E50;margin-bottom:4px;">API Key (Master Key)</label>
-      <input id="inst-apikey" type="password" value="${CFG.apiKey||''}" placeholder="$2a$10$..."
+      <p style="margin:0 0 16px;font-size:13px;color:#7F8C8D;">De kalender gebruikt Firebase als database. Het document-ID bepaalt welke klas je bekijkt.</p>
+      <label style="display:block;font-size:13px;font-weight:700;color:#2C3E50;margin-bottom:4px;">Document ID (klasnaam)</label>
+      <input id="inst-docid" type="text" value="${DOC_ID}"
         style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid #D0D0D0;border-radius:8px;font-size:14px;margin-bottom:24px;">
       <div style="display:flex;gap:10px;justify-content:flex-end;">
-        <button onclick="importeerLokaleData();document.getElementById('inst-overlay').remove();"
-          style="padding:10px 20px;border:1.5px solid #27AE60;border-radius:8px;background:#EAFAF1;color:#27AE60;cursor:pointer;font-size:14px;font-weight:700;">📥 Importeer lokale data</button>
         <button onclick="document.getElementById('inst-overlay').remove()"
           style="padding:10px 20px;border:1.5px solid #D0D0D0;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;">Annuleren</button>
         <button onclick="slaInstellingenOp()"
@@ -507,12 +548,12 @@ function toonInstellingen(){
 }
 
 function slaInstellingenOp(){
-  CFG.binId=document.getElementById('inst-binid').value.trim();
-  CFG.apiKey=document.getElementById('inst-apikey').value.trim();
-  cfg.sla(CFG);
-  document.getElementById('inst-overlay').remove();
-  DB={};
-  laadVanBin().then(()=>init());
+  const nieuwId=document.getElementById('inst-docid').value.trim();
+  if(nieuwId){
+    // Herlaad pagina met nieuw document ID via URL hash
+    window.location.hash='doc='+nieuwId;
+    window.location.reload();
+  }
 }
 
 function slaHuidig(){
@@ -911,7 +952,17 @@ function renderWeek(idx){
           cel.dataset.sv=`${wk}_d${di}_u${les.nr}`;
           cel.placeholder=`Les ${les.nr}...`;
           cel.value=val;
+          let oudeWaarde=val;
+          cel.addEventListener('focus',()=>{oudeWaarde=cel.value;});
           cel.addEventListener('input',slaWeekEnOp);
+          cel.addEventListener('blur',()=>{
+            const nieuweWaarde=cel.value;
+            // Alleen popup tonen als waarde echt gewijzigd is én er volgende weken zijn
+            if(nieuweWaarde!==oudeWaarde && actief<WEKEN.length-1){
+              toonWijzigingPopup(actief, di, les.nr, nieuweWaarde, oudeWaarde, cel);
+            }
+            oudeWaarde=nieuweWaarde;
+          });
           grid.appendChild(cel);
         }
       });
@@ -994,19 +1045,96 @@ function importeerLokaleData(){
     if(!oud){toonToast('Geen lokale data gevonden.');return;}
     const data=JSON.parse(oud);
     if(Object.keys(data).length===0){toonToast('Lokale data is leeg.');return;}
-    if(!confirm('Wil je de lokale kalenderdata importeren naar JSONBin?\n\nLet op: de huidige JSONBin-data wordt overschreven.'))return;
+    if(!confirm('Wil je de lokale kalenderdata importeren naar Firebase?\n\nLet op: de huidige data wordt overschreven.'))return;
     DB=data;
-    slaOpBin().then(()=>{
-      toonToast('✓ Lokale data geïmporteerd naar JSONBin!');
+    slaOpDB().then(()=>{
+      toonToast('✓ Lokale data geïmporteerd naar Firebase!');
       renderWeek(actief);
     });
   }catch(e){toonToast('Fout bij importeren: '+e.message);}
 }
 
+// ══ WIJZIGING POPUP ══
+let wijzigingContext=null; // {wkIdx, di, lesNr, nieuweWaarde, oudeWaarde, celEl}
+
+function toonWijzigingPopup(wkIdx, di, lesNr, nieuweWaarde, oudeWaarde, celEl){
+  // Sla context op
+  wijzigingContext={wkIdx, di, lesNr, nieuweWaarde, oudeWaarde, celEl};
+
+  // Positioneer popup bij de cel
+  const popup=document.getElementById('wijziging-popup');
+  const rect=celEl.getBoundingClientRect();
+  const dagNaam=DAGEN[di].naam;
+  document.getElementById('wij-omschrijving').textContent=
+    `${dagNaam}, Les ${lesNr} — wil je deze wijziging ook doorvoeren in volgende weken?`;
+
+  // Positie berekenen
+  let top=rect.bottom+window.scrollY+6;
+  let left=rect.left+window.scrollX;
+  // Voorkom dat popup buiten scherm valt
+  popup.style.display='block';
+  if(left+280>window.innerWidth)left=window.innerWidth-290;
+  if(top+200>window.innerHeight+window.scrollY)top=rect.top+window.scrollY-210;
+  popup.style.top=top+'px';
+  popup.style.left=left+'px';
+  popup.classList.add('zichtbaar');
+}
+
+function sluitWijzigingPopup(herstel=false){
+  const popup=document.getElementById('wijziging-popup');
+  popup.classList.remove('zichtbaar');
+  popup.style.display='none';
+  if(herstel && wijzigingContext){
+    // Zet de cel terug naar de oude waarde
+    wijzigingContext.celEl.value=wijzigingContext.oudeWaarde;
+    const wk='w'+wijzigingContext.wkIdx;
+    DB[wk]=DB[wk]||{};
+    DB[wk]['d'+wijzigingContext.di]=DB[wk]['d'+wijzigingContext.di]||{};
+    DB[wk]['d'+wijzigingContext.di]['u'+wijzigingContext.lesNr]=wijzigingContext.oudeWaarde;
+    slaOp();
+  }
+  wijzigingContext=null;
+}
+
+function pasWijzigingToe(type){
+  if(!wijzigingContext)return;
+  const {wkIdx, di, lesNr, nieuweWaarde}=wijzigingContext;
+
+  if(type==='eenmalig'){
+    // Alleen huidige week — al opgeslagen, niets extra te doen
+    toonToast('✓ Wijziging opgeslagen voor deze week');
+  } else if(type==='rest'){
+    // Huidige week + alle volgende weken
+    let aangepast=0;
+    for(let i=wkIdx;i<WEKEN.length;i++){
+      const wk='w'+i;
+      const wd=DB[wk]||{};
+      const wtype=wd.wtype||'normaal';
+      if(wtype==='vakantie'||wtype==='vrij')continue;
+      wd['d'+di]=wd['d'+di]||{};
+      wd['d'+di]['u'+lesNr]=nieuweWaarde;
+      DB[wk]=wd;
+      aangepast++;
+    }
+    slaOp();
+    toonToast(`✓ Wijziging doorgevoerd in ${aangepast} weken`);
+    renderWeek(actief);
+  }
+  sluitWijzigingPopup(false);
+}
+
 // ══ INIT ══
 async function init(){
   try{
-    await laadVanBin();
+    // Lees document ID uit URL hash indien aanwezig
+    const hash=window.location.hash;
+    if(hash.startsWith('#doc=')){
+      const hashId=hash.replace('#doc=','').trim();
+      if(hashId)window.DOC_ID_OVERRIDE=hashId;
+    }
+
+    await initFirebase();
+    await laadVanDB();
 
     // Herstel klasnaam
     const bewaardNaam=DB.__klasnaam;
@@ -1020,13 +1148,11 @@ async function init(){
       `${DAGNAMEN[VANDAAG.getDay()]} ${VANDAAG.getDate()} ${MAANDNAMEN[VANDAAG.getMonth()]} ${VANDAAG.getFullYear()}`;
 
     bouwTabs();
-    // Open week van vandaag
     const viIdx=WEKEN.findIndex((_,i)=>heeftVandaag(i));
     actief=viIdx>=0?viIdx:0;
     updateTabs();
     renderWeek(actief);
 
-    // Toetsenbord pijltjes
     document.addEventListener('keydown',e=>{
       if(e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT')return;
       if(e.key==='ArrowRight')nav(1);
